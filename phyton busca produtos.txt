@@ -1,0 +1,77 @@
+import requests
+import re
+import os
+from bs4 import BeautifulSoup
+import pandas as pd
+
+# Defina a URL base e obtenha a resposta
+url_base = 'https://www.mercadolivre.com.br/ofertas'
+response = requests.get(url_base)
+
+# Analise a resposta com BeautifulSoup
+site = BeautifulSoup(response.text, 'html.parser')
+
+# Encontre a lista de produtos
+produtos = site.find('ol', attrs={'class':'items_container'})
+
+# Diretório para salvar as imagens do produto
+diretorio_imagens = 'G:\\Meu Drive\\projeto-webscraping\\BuscaProdutos\\img_dos_produtos'
+
+# Se o diretório não existir ele vai criar, se não e vai ignorar
+os.makedirs(diretorio_imagens, exist_ok=True)
+
+# Inicialize a lista de produtos
+lista_produtos = []
+
+# Inicialize o contador
+contador = 1
+
+# Itere sobre cada produto
+for produto in produtos:
+    # Encontre os detalhes do produto
+    titulo = produto.find('p', attrs={'class':'promotion-item__title'})
+    link = produto.find('a', attrs={'class':'promotion-item__link-container'})
+    valor = produto.find('span', attrs={'class':'andes-money-amount__fraction'})
+    centavos = produto.find('span', attrs={'class':'andes-money-amount__cents andes-money-amount__cents--superscript-24'})
+    frete = produto.find('span', attrs={'class':'promotion-item__pill'})
+    img = produto.find('img', attrs={'class':'promotion-item__img'})
+
+    # Obtenha o URL da imagem e faça o download da imagem
+    img_url = img['src']
+    response = requests.get(img_url)
+
+    # Salve a imagem com o nome baseado no contador
+    #with open(os.path.join(diretorio_imagens, f'produto_{contador}.jpg'), 'wb') as f:
+        #f.write(response.content)
+
+    # Imprima os detalhes do produto
+    print(f'Produto {contador}:')
+    print('Descrição do Produto:', titulo.text)
+    if centavos:
+        valor_produto = valor.text + ',' + centavos.text
+        print('Valor:R$', valor_produto)
+    else:
+        valor_produto = valor.text.replace('R$', '').replace(',', '.')
+        valor_produto = float(valor_produto)
+        print('Valor:', valor_produto)
+    if frete:
+        print(frete.text)
+    print('Link do Produto:', link['href'])
+    print('\n\n')
+
+    # Adicione o produto à lista de produtos
+    if frete:
+        lista_produtos.append([titulo.text, valor_produto, frete.text, link['href']])
+    else:
+        lista_produtos.append([titulo.text, valor_produto, '', link['href']])
+
+    # Incremente o contador
+    contador += 1
+    
+# Crie um DataFrame a partir da lista de produtos começe pelo numero 1 em vez de 0 
+tabela = pd.DataFrame(lista_produtos, columns=['Protudo', 'Preço', 'Frete', 'Link'])
+tabela.index = tabela.index + 1
+# Gere a tabela no diretório
+tabela.to_xml('Tabela_de_protudos.xml', index=False)
+# Imprima a tabela
+print(tabela)
